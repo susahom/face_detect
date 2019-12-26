@@ -3,15 +3,17 @@ import sys
 import time
 from datetime import datetime as dt
 import cv2
+import random
 import math
 import matplotlib.pyplot as plt
-from skimage.draw import random_shapes
+# # from skimage.draw import random_shapes
 import numpy as np
+from PIL import Image
 
 name = sys.argv[-1]
 print(name)
 
-cascade_file = "opencv-4.1.1/data/haarcascades/haarcascade_frontalface_alt2.xml"
+cascade_file = "haarcascade_frontalface_alt2.xml"
 cascade = cv2.CascadeClassifier(cascade_file)
 
 cnt_max = 2
@@ -83,22 +85,72 @@ cv2.imwrite('{}/{}'.format(path, filename), face)
 image_size = 200
 # # 矢印マスク画像
 mask = np.zeros((image_size, image_size))
-pts = np.array(((int(image_size/4), 0),
+pts_arrow = np.array(((int(image_size/4), 0),
                 ((int(image_size/4)), (int(image_size/2))),
                 (0, int(image_size/2)),
                 (int(image_size/2), image_size),
                 (image_size, int(image_size/2)),
                 (int(image_size/4*3), int(image_size/2)),
                 (int(image_size/4*3), 0)))
-cv2.fillPoly(mask, [pts], (1, 1, 1))
+cv2.fillPoly(mask, [pts_arrow], (1, 1, 1))
 
 # # マーカー画像
-marker, _ = random_shapes((image_size, image_size), min_shapes=5, max_shapes=10,
-                          min_size=20, allow_overlap=True)
+# marker, _ = random_shapes((image_size, image_size), min_shapes=10, max_shapes=20,
+#                           min_size=20, allow_overlap=True)
+
+
+def make_marker(size_marker, num_shape_min, num_shape_max):
+    marker_img = np.zeros((size_marker, size_marker))
+    num_shape = random.randint(num_shape_min, num_shape_max)
+    i = 0
+    while i <= num_shape:
+        shape_pattern = random.randint(1, 8)
+        shape_pnt_x1 = random.randint(10, size_marker - 10)
+        shape_pnt_x2 = random.randint(10, size_marker - 10)
+        shape_pnt_y1 = random.randint(10, size_marker - 10)
+        shape_pnt_y2 = random.randint(10, size_marker - 10)
+        shape_size = random.randint(30, int(size_marker/3))
+        if shape_pattern <= 2:
+            cv2.rectangle(marker_img,
+                          (shape_pnt_x1, shape_pnt_y1),
+                          (shape_pnt_x1+shape_size, shape_pnt_y1+shape_size),
+                          (255, 255, 255))
+        elif shape_pattern >= 3 & shape_pattern <= 6:
+            pts = np.array(((shape_pnt_x1, shape_pnt_y1),
+                            (shape_pnt_x2, shape_pnt_y2),
+                            (int(abs(shape_pnt_x1-shape_pnt_x2)/2), shape_pnt_y1+shape_pnt_y2)))
+            cv2.polylines(marker_img, [pts], True, (255, 255, 255), thickness=2)
+        elif shape_pattern == 7:
+            pts = np.array(((shape_pnt_x1, shape_pnt_y1),
+                            (int(shape_pnt_x1-shape_size/2), shape_pnt_y1+shape_size),
+                            (int(shape_pnt_x1+shape_size/2), shape_pnt_y1+shape_size)))
+            cv2.polylines(marker_img, [pts], True, (255, 255, 255), thickness=2)
+            pts = np.array(((shape_pnt_x1, shape_pnt_y1+shape_size+30),
+                           (int(shape_pnt_x1-shape_size/2), shape_pnt_y1+30),
+                           (int(shape_pnt_x1+shape_size/2), shape_pnt_y1+30)))
+            cv2.polylines(marker_img, [pts], True, (255, 255, 255), thickness=2)
+        else:
+            cv2.line(marker_img, (shape_pnt_x1, shape_pnt_y1),
+                          (shape_pnt_x1+shape_size, shape_pnt_y1+shape_size), (255, 255, 255))
+        i += 1
+        print('shape:' + str(i))
+    return marker_img
+
+
+marker = make_marker(image_size, 10, 20)
+
+
 # # 矢印マーカー画像
+masked_marker = mask * marker
+cv2.polylines(masked_marker, [pts_arrow], True, (255, 255, 255), thickness=2)
+masked_marker = np.where(masked_marker < 255, 255, 0)
+
 
 # # 保存
 filename = 'marker-{}.png'.format(name)
 path = '{}/markers/'.format(os.getcwd())
-cv2.imwrite('{}/{}'.format(path, filename), marker)
+print("マーカー ", path)
+cv2.imwrite('{}/{}'.format(path, filename), masked_marker)
+
+
 
